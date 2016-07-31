@@ -1,14 +1,17 @@
 import cv2
-import time
 import numpy as np
 import glob
 import os
+import threading
 
 FILENAME = 'rawTrimmed.mp4'
 FRAMERATE = 60
 RAW_IMAGE_WIDTH = 1280
 RAW_IMAGE_HEIGHT = 720
 FINAL_IMAGE_SIZE = 150
+
+EXTRACTION_THREADS = 2
+MANIPULATION_THREADS = 2
 
 ACTIVE = True
 
@@ -25,59 +28,72 @@ class Frame:
         self.basePath = basepath
         self.count = count
 
-def extract_frames(video, savePath):
-    cap = cv2.VideoCapture(video)
-    timeCount = 0.0
-    loopCount = 0
 
-    while True:
-        succ, image = cap.read()
+class Process(threading.Thread):
+    def __init__(self, task, threadID):
+        threading.Thread.__init__(self)
 
-        if succ:
-            print str(timeCount) + str(int(timeCount))
-            framesToConvert.append(Frame(image, savePath, int(timeCount)))
+        self.task = task
+        self.threadID = threadID
 
-        else:
-            break
+    def run(self):
+        if(self.task == 1):
+            global folders
 
-        if loopCount % 1000 == 0:
-            manipulate()
+            while len(folders) > 0:
+                folderPath = folders.pop(-1)
 
-        timeCount += (1.0 / FRAMERATE) * 1000.0
-        loopCount += 1
+                self.extract_frames(folderPath.front + FILENAME, folderPath.front)
+                self.extract_frames(folderPath.back + FILENAME, folderPath.back)
 
-    manipulate()
+        elif(self.task == 2):
+            global framesToConvert
 
+            while len(framesToConvert) > 0:
+                currentFrame = framesToConvert.pop(-1)
 
-def extract():
-    for folderPath in folders:
-        extract_frames(folderPath.front + FILENAME, folderPath.front)
-        extract_frames(folderPath.back + FILENAME, folderPath.back)
+                if not os.path.isdir(currentFrame.basePath + "/raw/"):
+                    os.mkdir(currentFrame.basePath + "/raw/")
+                    os.mkdir(currentFrame.basePath + "/grayscale/")
+                    os.mkdir(currentFrame.basePath + "/cropped/")
+                    os.mkdir(currentFrame.basePath + "/resize150/")
 
+                cv2.imwrite(currentFrame.basePath + "/raw/FRAME_" + str(currentFrame.count) + ".jpg",currentFrame.image)
 
-def manipulate():
-    while len(framesToConvert) > 0:
-        currentFrame = framesToConvert.pop(-1)
+                grayscaleImage = cv2.cvtColor(currentFrame.image, cv2.COLOR_BGR2GRAY)
+                cv2.imwrite(currentFrame.basePath + "/grayscale/FRAME_" + str(currentFrame.count) + ".jpg", grayscaleImage)
 
-        if not os.path.isdir(currentFrame.basePath + "/raw/"):
-            os.mkdir(currentFrame.basePath + "/raw/")
-            os.mkdir(currentFrame.basePath + "/grayscale/")
-            os.mkdir(currentFrame.basePath + "/cropped/")
-            os.mkdir(currentFrame.basePath + "/resize150/")
+                croppedImage = grayscaleImage[0:RAW_IMAGE_HEIGHT, ((RAW_IMAGE_WIDTH - RAW_IMAGE_HEIGHT) / 2):RAW_IMAGE_WIDTH - ((RAW_IMAGE_WIDTH - RAW_IMAGE_HEIGHT) / 2)]
+                cv2.imwrite(currentFrame.basePath + "/cropped/FRAME_" + str(currentFrame.count) + ".jpg", croppedImage)
 
-        cv2.imwrite(currentFrame.basePath + "/raw/FRAME_" + str(currentFrame.count) + ".jpg", currentFrame.image)
+                resizedImage = cv2.resize(croppedImage, (FINAL_IMAGE_SIZE, FINAL_IMAGE_SIZE), interpolation=cv2.INTER_AREA)
+                cv2.imwrite(currentFrame.basePath + "/resize150/FRAME_" + str(currentFrame.count) + ".jpg", resizedImage)
 
-        grayscaleImage = cv2.cvtColor(currentFrame.image, cv2.COLOR_BGR2GRAY)
-        cv2.imwrite(currentFrame.basePath + "/grayscale/FRAME_" + str(currentFrame.count) + ".jpg", grayscaleImage)
+    def extract_frames(self, video, savePath):
+        cap = cv2.VideoCapture(video)
+        timeCount = 0.0
+        loopCount = 0
 
-        croppedImage = grayscaleImage[0:RAW_IMAGE_HEIGHT, ((RAW_IMAGE_WIDTH - RAW_IMAGE_HEIGHT) / 2):RAW_IMAGE_WIDTH - ((RAW_IMAGE_WIDTH - RAW_IMAGE_HEIGHT) / 2)]
-        cv2.imwrite(currentFrame.basePath + "/cropped/FRAME_" + str(currentFrame.count) + ".jpg", croppedImage)
+        while True:
+            succ, image = cap.read()
 
-        resizedImage = cv2.resize(croppedImage, (FINAL_IMAGE_SIZE, FINAL_IMAGE_SIZE), interpolation=cv2.INTER_AREA)
-        cv2.imwrite(currentFrame.basePath + "/resize150/FRAME_" + str(currentFrame.count) + ".jpg", resizedImage)
+            if succ:
+                print str(timeCount) + str(int(timeCount))
+                framesToConvert.append(Frame(image, savePath, int(timeCount)))
 
+            else:
+                break
+
+            timeCount += (1.0 / FRAMERATE) * 1000.0
+            loopCount += 1
 
 folders = [Path(path) for path in glob.glob(os.getcwd() + "/*") if os.path.isdir(path)]
 framesToConvert = []
 
-extract()
+processes = [Process(1, i) for i in xrange(EXTRACTION_THREADS)]
+
+for i in xrange(MANIPULATION_THREADS):
+    processes.append(Process(2, i + EXTRACTION_THREADS))
+
+for p in processes:
+    p.start()
