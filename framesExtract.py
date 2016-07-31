@@ -28,6 +28,7 @@ class Frame:
 def extract_frames(video, savePath):
     cap = cv2.VideoCapture(video)
     timeCount = 0.0
+    loopCount = 0
 
     while True:
         succ, image = cap.read()
@@ -39,18 +40,19 @@ def extract_frames(video, savePath):
         else:
             break
 
+        if loopCount % 1000 == 0:
+            manipulate()
+
         timeCount += (1.0 / FRAMERATE) * 1000.0
+        loopCount += 1
+
+    manipulate()
 
 
 def extract():
     for folderPath in folders:
         extract_frames(folderPath.front + FILENAME, folderPath.front)
-        print len(framesToConvert)
-        manipulate()
-
         extract_frames(folderPath.back + FILENAME, folderPath.back)
-        print len(framesToConvert)
-        manipulate()
 
 
 def manipulate():
