@@ -29,8 +29,7 @@ def extract_frames(video, savePath):
     cap = cv2.VideoCapture(video)
     timeCount = 0.0
 
-   # while True:
-    for i in xrange(1000):
+    while True:
         succ, image = cap.read()
 
         if succ:
