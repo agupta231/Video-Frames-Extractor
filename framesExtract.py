@@ -6,7 +6,7 @@ import os
 from skimage.feature import canny
 from skimage import img_as_ubyte
 
-FILENAME = 'raw.mp4'
+FILENAME = 'raw_trimmed.mp4'
 FRAMERATE = 60
 RAW_IMAGE_WIDTH = 1280
 RAW_IMAGE_HEIGHT = 720
@@ -73,8 +73,8 @@ def manipulate():
         resizedImage = cv2.resize(croppedImage, (FINAL_IMAGE_SIZE, FINAL_IMAGE_SIZE), interpolation=cv2.INTER_AREA)
         cv2.imwrite(currentFrame.basePath + "/resize150/FRAME_" + str(currentFrame.count) + ".jpg", resizedImage)
 
-        edges = img_as_ubyte(canny(resizedImage, sigma=1))
-        cv2.imwrite("/edges_" + str(edges_sigma) + "/FRAME_" + str(currentFrame.count) + ".jpg", edges)
+        edges = img_as_ubyte(canny(resizedImage, sigma=1.75))
+        cv2.imwrite(currentFrame.basePath + "/edges_" + str(edges_sigma) + "/FRAME_" + str(currentFrame.count) + ".jpg", edges)
 
 folders = [path for path in glob.glob(os.getcwd() + "/*") if os.path.isdir(path)]
 framesToConvert = []
