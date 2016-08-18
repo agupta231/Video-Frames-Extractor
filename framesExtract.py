@@ -3,21 +3,16 @@ import time
 import numpy as np
 import glob
 import os
+from skimage.feature import canny
+from skimage import img_as_ubyte
 
-FILENAME = 'rawTrimmed.mp4'
+FILENAME = 'raw.mp4'
 FRAMERATE = 60
 RAW_IMAGE_WIDTH = 1280
 RAW_IMAGE_HEIGHT = 720
 FINAL_IMAGE_SIZE = 150
 
 ACTIVE = True
-
-class Path:
-    def __init__(self, basePath):
-        self.basePath = basePath
-        self.front = self.basePath + "/front/"
-        self.back = self.basePath + "/back/"
-
 
 class Frame:
     def __init__(self, image, basepath, count):
@@ -51,11 +46,12 @@ def extract_frames(video, savePath):
 
 def extract():
     for folderPath in folders:
-        extract_frames(folderPath.front + FILENAME, folderPath.front)
-        extract_frames(folderPath.back + FILENAME, folderPath.back)
+        extract_frames(folderPath + "/" + FILENAME, folderPath)
 
 
 def manipulate():
+    edges_sigma = 1
+
     while len(framesToConvert) > 0:
         currentFrame = framesToConvert.pop(-1)
 
@@ -64,6 +60,7 @@ def manipulate():
             os.mkdir(currentFrame.basePath + "/grayscale/")
             os.mkdir(currentFrame.basePath + "/cropped/")
             os.mkdir(currentFrame.basePath + "/resize150/")
+            os.mkdir(currentFrame.basePath + "/edges_" + str(edges_sigma) + "/")
 
         cv2.imwrite(currentFrame.basePath + "/raw/FRAME_" + str(currentFrame.count) + ".jpg", currentFrame.image)
 
@@ -76,8 +73,10 @@ def manipulate():
         resizedImage = cv2.resize(croppedImage, (FINAL_IMAGE_SIZE, FINAL_IMAGE_SIZE), interpolation=cv2.INTER_AREA)
         cv2.imwrite(currentFrame.basePath + "/resize150/FRAME_" + str(currentFrame.count) + ".jpg", resizedImage)
 
+        edges = img_as_ubyte(canny(resizedImage, sigma=1))
+        cv2.imwrite("/edges_" + str(edges_sigma) + "/FRAME_" + str(currentFrame.count) + ".jpg", edges)
 
-folders = [Path(path) for path in glob.glob(os.getcwd() + "/*") if os.path.isdir(path)]
+folders = [path for path in glob.glob(os.getcwd() + "/*") if os.path.isdir(path)]
 framesToConvert = []
 
 extract()
