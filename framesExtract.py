@@ -50,7 +50,7 @@ def extract():
 
 
 def manipulate():
-    edges_sigma = 1
+    edges_sigma = 1.75
 
     while len(framesToConvert) > 0:
         currentFrame = framesToConvert.pop(-1)
